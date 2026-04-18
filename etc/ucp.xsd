@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="config">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="agent"
+                            type="agentType"
+                            minOccurs="0"
+                            maxOccurs="unbounded"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+    <xs:complexType name="agentType">
+        <xs:sequence>
+            <xs:element name="identity"     type="identityType"     minOccurs="0"/>
+            <xs:element name="capabilities" type="capabilitiesType" minOccurs="0"/>
+            <xs:element name="permissions"  type="permissionsType"  minOccurs="0"/>
+            <xs:element name="policies"     type="policiesType"     minOccurs="0"/>
+        </xs:sequence>
+        <xs:attribute name="id"     type="xs:string"  use="required"/>
+        <xs:attribute name="active" type="xs:boolean" default="true"/>
+    </xs:complexType>
+
+    <xs:complexType name="identityType">
+        <xs:all>
+            <xs:element name="name"        type="xs:string"      minOccurs="0"/>
+            <xs:element name="did"         type="xs:string"      minOccurs="0"/>
+            <xs:element name="public_key"  type="xs:string"      minOccurs="0"/>
+            <xs:element name="trust_level" type="trustLevelEnum" minOccurs="0"/>
+        </xs:all>
+    </xs:complexType>
+
+    <xs:simpleType name="trustLevelEnum">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="verified"/>
+            <xs:enumeration value="trusted"/>
+            <xs:enumeration value="provisional"/>
+            <xs:enumeration value="untrusted"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="capabilitiesType">
+        <xs:sequence>
+            <xs:element name="capability"
+                        type="capabilityType"
+                        minOccurs="0"
+                        maxOccurs="unbounded"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="capabilityType">
+        <xs:attribute name="name"    type="capabilityEnum" use="required"/>
+        <xs:attribute name="enabled" type="xs:boolean"     default="true"/>
+    </xs:complexType>
+
+    <xs:simpleType name="capabilityEnum">
+        <!--
+            Open pattern — any "namespace.action" string is valid.
+            Child modules define their own capability codes freely.
+            Convention: use dot notation, lowercase, e.g. quote.request
+            No central registry needed — just follow the pattern.
+        -->
+        <xs:restriction base="xs:string">
+            <xs:pattern value="[a-z][a-z0-9]*\.[a-z][a-z0-9]*([a-z0-9.])*"/>
+        </xs:restriction>
+    </xs:simpleType>
+    <xs:complexType name="permissionsType">
+        <xs:all>
+            <xs:element name="max_order_value"         type="xs:decimal"              minOccurs="0"/>
+            <xs:element name="allowed_payment_methods" type="paymentMethodsType"      minOccurs="0"/>
+            <xs:element name="customer_segments"       type="customerSegmentsType"    minOccurs="0"/>
+        </xs:all>
+    </xs:complexType>
+
+    <xs:complexType name="paymentMethodsType">
+        <xs:sequence>
+            <xs:element name="method" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:attribute name="code" type="xs:string" use="required"/>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="customerSegmentsType">
+        <xs:sequence>
+            <xs:element name="segment" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:attribute name="code" type="xs:string" use="required"/>
+                </xs:complexType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+    <xs:complexType name="policiesType">
+        <xs:all>
+            <xs:element name="require_human_confirmation" type="xs:boolean" minOccurs="0"/>
+            <xs:element name="rate_limit_per_minute"      type="xs:integer" minOccurs="0"/>
+            <xs:element name="audit_log"                  type="xs:boolean" minOccurs="0"/>
+            <xs:element name="ttl_seconds"                type="xs:integer" minOccurs="0"/>
+        </xs:all>
+    </xs:complexType>
+
+</xs:schema>

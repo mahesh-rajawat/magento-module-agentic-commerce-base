@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="ucp_audit_log" resource="default" engine="innodb"
+           comment="UCP Agent request audit trail">
+        <column name="log_id"       xsi:type="int"       unsigned="true" nullable="false" identity="true" comment="Log ID"/>
+        <column name="agent_did"    xsi:type="varchar"   length="255"    nullable="false" comment="Agent DID"/>
+        <column name="request_path" xsi:type="varchar"   length="512"    nullable="false" comment="Request path"/>
+        <column name="capability_label" xsi:type="varchar" length="128"
+                nullable="true" comment="Human readable capability name"/>
+        <column name="outcome"      xsi:type="varchar"   length="32"     nullable="false" comment="ALLOWED|DENIED|RATE_LIMITED"/>
+        <column name="ip_address"   xsi:type="varchar"   length="45"     nullable="true"  comment="Client IP"/>
+        <column name="created_at"   xsi:type="timestamp" nullable="false" default="CURRENT_TIMESTAMP" comment="Created at"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="log_id"/>
+        </constraint>
+        <index referenceId="UCP_AUDIT_AGENT_DID" indexType="btree">
+            <column name="agent_did"/>
+        </index>
+        <index referenceId="UCP_AUDIT_CREATED_AT" indexType="btree">
+            <column name="created_at"/>
+        </index>
+    </table>
+</schema>

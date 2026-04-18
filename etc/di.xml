@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="MSR\AgenticUcp\Api\AgentAuthInterface"
+                type="MSR\AgenticUcp\Model\AgentAuth"/>
+    <preference for="MSR\AgenticUcp\Api\Data\AuthRequestInterface"
+                type="MSR\AgenticUcp\Model\Data\AuthRequest"/>
+    <preference for="MSR\AgenticUcp\Api\Data\AuthTokenInterface"
+                type="MSR\AgenticUcp\Model\Data\AuthToken"/>
+    <virtualType name="MSR\AgenticUcp\Model\Config\Reader"
+                 type="Magento\Framework\Config\Reader\Filesystem">
+        <arguments>
+            <argument name="converter"     xsi:type="object">MSR\AgenticUcp\Model\Config\Converter</argument>
+            <argument name="schemaLocator" xsi:type="object">MSR\AgenticUcp\Model\Config\SchemaLocator</argument>
+            <argument name="fileName"      xsi:type="string">ucp.xml</argument>
+            <argument name="idAttributes" xsi:type="array">
+                <item name="/config/agent" xsi:type="string">id</item>
+                <item name="/config/agent/capabilities/capability" xsi:type="string">name</item>
+                <item name="/config/agent/permissions/allowed_payment_methods/method" xsi:type="string">code</item>
+                <item name="/config/agent/permissions/customer_segments/segment" xsi:type="string">code</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <type name="Magento\Webapi\Controller\Rest">
+        <plugin name="ucp_agent_policy_guard"
+                type="MSR\AgenticUcp\Plugin\Webapi\AgentPolicyGuard"
+                sortOrder="1"/>
+    </type>
+</config>

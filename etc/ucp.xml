@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!--
+    ucp.xml — capability profiles only.
+    These are templates, not real agents.
+    Real agents (DID + identity + policies) are
+    configured in Stores → Configuration → MSR AgenticUcp.
+
+    Profile IDs are referenced by the admin when
+    assigning capabilities to a registered agent.
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:MSR_AgenticUcp:etc/ucp.xsd">
+
+    <!-- Read-only: safe for any agent, no purchase ability -->
+    <agent id="profile-readonly">
+        <capabilities>
+            <capability name="catalog.browse"   enabled="true"/>
+            <capability name="catalog.search"   enabled="true"/>
+            <capability name="inventory.query"  enabled="true"/>
+            <capability name="order.track"      enabled="true"/>
+            <capability name="customer.read"    enabled="false"/>
+            <capability name="cart.manage"      enabled="false"/>
+            <capability name="order.place"      enabled="false"/>
+            <capability name="payment.initiate" enabled="false"/>
+            <capability name="negotiation.price" enabled="false"/>
+        </capabilities>
+    </agent>
+
+    <!-- Shopping agent: can browse and purchase, no payment/negotiation -->
+    <agent id="profile-shopping">
+        <capabilities>
+            <capability name="catalog.browse"   enabled="true"/>
+            <capability name="catalog.search"   enabled="true"/>
+            <capability name="inventory.query"  enabled="true"/>
+            <capability name="cart.manage"      enabled="true"/>
+            <capability name="order.place"      enabled="true"/>
+            <capability name="order.track"      enabled="true"/>
+            <capability name="customer.read"    enabled="false"/>
+            <capability name="payment.initiate" enabled="false"/>
+            <capability name="negotiation.price" enabled="false"/>
+        </capabilities>
+    </agent>
+
+    <!-- Full access: everything enabled -->
+    <agent id="profile-full-access">
+        <capabilities>
+            <capability name="catalog.browse"    enabled="true"/>
+            <capability name="catalog.search"    enabled="true"/>
+            <capability name="inventory.query"   enabled="true"/>
+            <capability name="cart.manage"       enabled="true"/>
+            <capability name="order.place"       enabled="true"/>
+            <capability name="order.track"       enabled="true"/>
+            <capability name="customer.read"     enabled="true"/>
+            <capability name="payment.initiate"  enabled="true"/>
+            <capability name="negotiation.price" enabled="false"/>
+        </capabilities>
+    </agent>
+
+</config>

@@ -1,0 +1,258 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+
+        <!-- ── Tab ──────────────────────────────────────────────────────── -->
+        <tab id="msr" translate="label" sortOrder="999">
+            <label>MSR</label>
+        </tab>
+
+        <!-- ── Section ──────────────────────────────────────────────────── -->
+        <section id="msr_agentic_ucp"
+                 translate="label"
+                 sortOrder="10"
+                 showInDefault="1"
+                 showInWebsite="1"
+                 showInStore="1">
+            <label>Agentic UCP</label>
+            <tab>msr</tab>
+            <resource>MSR_AgenticUcp::config</resource>
+
+            <!-- ════════════════════════════════════════════════════════════
+                 GROUP 1 — General
+            ════════════════════════════════════════════════════════════ -->
+            <group id="general"
+                   translate="label"
+                   sortOrder="10"
+                   showInDefault="1"
+                   showInWebsite="1"
+                   showInStore="1">
+                <label>General</label>
+
+                <field id="enabled"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Enable UCP</label>
+                    <comment>
+                        When disabled, all /V1/ucp/* endpoints return 503
+                        and /.well-known/ucp.json returns an empty manifest.
+                    </comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+
+            </group>
+
+            <!-- ════════════════════════════════════════════════════════════
+                 GROUP 2 — Agent registry
+                 Admins add real agents here (DID + profile + overrides).
+                 No capability codes visible — only profile names.
+            ════════════════════════════════════════════════════════════ -->
+            <group id="agents"
+                   translate="label comment"
+                   sortOrder="20"
+                   showInDefault="1"
+                   showInWebsite="0"
+                   showInStore="0">
+                <label>Agent registry</label>
+                <comment>
+                    Register each AI agent that is allowed to interact with
+                    this store. Assign a capability profile to control what
+                    each agent can do. Policies set here override the defaults
+                    below for that specific agent.
+                </comment>
+
+                <!-- Dynamic agent rows grid -->
+                <field id="registry"
+                       translate="label comment"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="0"
+                       showInStore="0">
+                    <label>Registered agents</label>
+                    <comment>
+                        Each agent needs a unique name, a DID
+                        (Decentralized Identifier), and a capability profile.
+                        The DID is provided by the AI agent provider.
+                    </comment>
+                    <frontend_model>MSR\AgenticUcp\Block\Adminhtml\Config\AgentRegistry</frontend_model>
+                    <backend_model>MSR\AgenticUcp\Model\Config\Backend\AgentRegistry</backend_model>
+                </field>
+
+                <!-- Capability reference table — read-only, no input -->
+                <field id="capability_reference"
+                       translate="label"
+                       type="note"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="0"
+                       showInStore="0">
+                    <label>Capability profiles reference</label>
+                    <frontend_model>MSR\AgenticUcp\Block\Adminhtml\Config\CapabilityReference</frontend_model>
+                </field>
+
+            </group>
+
+            <!-- ════════════════════════════════════════════════════════════
+                 GROUP 3 — Default policies
+                 Apply to all agents unless overridden per-agent in registry.
+            ════════════════════════════════════════════════════════════ -->
+            <group id="defaults"
+                   translate="label comment"
+                   sortOrder="30"
+                   showInDefault="1"
+                   showInWebsite="1"
+                   showInStore="1">
+                <label>Default policies</label>
+                <comment>
+                    These limits apply to every registered agent unless
+                    a per-agent override is set in the Agent registry above.
+                </comment>
+
+                <field id="require_human_confirmation"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Require human confirmation</label>
+                    <comment>
+                        When enabled, agents must include a one-time
+                        X-UCP-Human-Confirmation header on any mutating
+                        request (add to cart, place order etc).
+                        High-risk capabilities always require confirmation
+                        regardless of this setting.
+                    </comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+
+                <field id="rate_limit_per_minute"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Rate limit (requests per minute)</label>
+                    <comment>
+                        Maximum number of API requests an agent can make
+                        per minute. Exceeding this returns HTTP 429.
+                        Set to 0 to disable rate limiting.
+                    </comment>
+                    <validate>validate-number validate-zero-or-greater</validate>
+                </field>
+
+                <field id="max_order_value"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Maximum order value</label>
+                    <comment>
+                        Agents cannot place orders above this amount.
+                        Returns HTTP 422 if exceeded.
+                        Set to 0 for no limit.
+                    </comment>
+                    <validate>validate-number validate-zero-or-greater</validate>
+                </field>
+
+                <field id="audit_log"
+                       translate="label comment"
+                       type="select"
+                       sortOrder="40"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Enable audit log</label>
+                    <comment>
+                        Records every agent request (allowed and denied)
+                        to the ucp_audit_log database table.
+                        Recommended: keep enabled for compliance and debugging.
+                    </comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+
+                <field id="ttl_seconds"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="50"
+                       showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1">
+                    <label>Access token TTL (seconds)</label>
+                    <comment>
+                        How long an agent's access token is valid after
+                        authentication. Default: 3600 (1 hour).
+                        Agents re-authenticate automatically when the token expires.
+                    </comment>
+                    <validate>validate-number validate-greater-than-zero</validate>
+                </field>
+
+            </group>
+
+            <!-- ════════════════════════════════════════════════════════════
+                 GROUP 4 — Security
+            ════════════════════════════════════════════════════════════ -->
+            <group id="security"
+                   translate="label comment"
+                   sortOrder="40"
+                   showInDefault="1"
+                   showInWebsite="0"
+                   showInStore="0">
+                <label>Security</label>
+                <comment>
+                    Advanced security settings. Changes here require
+                    re-authentication of all active agents.
+                </comment>
+
+                <field id="allowed_did_methods"
+                       translate="label comment"
+                       type="multiselect"
+                       sortOrder="10"
+                       showInDefault="1"
+                       showInWebsite="0"
+                       showInStore="0">
+                    <label>Allowed DID methods</label>
+                    <comment>
+                        Which Decentralized Identifier methods are accepted.
+                        did:web is standard for most AI agent providers.
+                    </comment>
+                    <source_model>MSR\AgenticUcp\Model\Config\Source\DidMethods</source_model>
+                </field>
+
+                <field id="did_resolution_timeout"
+                       translate="label comment"
+                       type="text"
+                       sortOrder="20"
+                       showInDefault="1"
+                       showInWebsite="0"
+                       showInStore="0">
+                    <label>DID resolution timeout (seconds)</label>
+                    <comment>
+                        How long to wait when fetching a DID document
+                        from the agent provider's server during authentication.
+                    </comment>
+                    <validate>validate-number validate-greater-than-zero</validate>
+                </field>
+
+                <field id="token_secret_hint"
+                       translate="label"
+                       type="note"
+                       sortOrder="30"
+                       showInDefault="1"
+                       showInWebsite="0"
+                       showInStore="0">
+                    <label>Token signing secret</label>
+                    <frontend_model>MSR\AgenticUcp\Block\Adminhtml\Config\TokenSecretHint</frontend_model>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
