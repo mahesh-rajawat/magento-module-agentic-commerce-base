@@ -13,6 +13,8 @@ use MSR\AgenticUcp\Api\Data\AuthTokenInterface;
 class AuthToken extends DataObject implements AuthTokenInterface
 {
     /**
+     * Get the access token value.
+     *
      * @return string
      */
     public function getAccessToken(): string
@@ -21,6 +23,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Set the access token value.
+     *
      * @param string $token
      * @return static
      */
@@ -30,6 +34,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Get the token expiry in seconds.
+     *
      * @return int
      */
     public function getExpiresIn(): int
@@ -38,6 +44,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Set the token expiry in seconds.
+     *
      * @param int $seconds
      * @return static
      */
@@ -47,6 +55,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Get the list of granted capabilities.
+     *
      * @return array
      */
     public function getGrantedCapabilities(): array
@@ -55,6 +65,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Set the list of granted capabilities.
+     *
      * @param array $capabilities
      * @return static
      */
@@ -64,6 +76,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Get the token type.
+     *
      * @return string
      */
     public function getTokenType(): string
@@ -72,6 +86,8 @@ class AuthToken extends DataObject implements AuthTokenInterface
     }
 
     /**
+     * Set the token type.
+     *
      * @param string $type
      * @return static
      */

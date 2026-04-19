@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Model\Config\Backend;
@@ -22,6 +23,17 @@ use Magento\Framework\Serialize\Serializer\Json;
  */
 class AgentRegistry extends Value
 {
+    /**
+     * @param Context $context
+     * @param Registry $registry
+     * @param ScopeConfigInterface $config
+     * @param TypeListInterface $cacheTypeList
+     * @param Json $json
+     * @param ManagerInterface $messageManager
+     * @param AbstractResource|null $resource
+     * @param AbstractDb|null $resourceCollection
+     * @param array $data
+     */
     public function __construct(
         Context $context,
         Registry $registry,
@@ -34,13 +46,20 @@ class AgentRegistry extends Value
         array $data = []
     ) {
         parent::__construct(
-            $context, $registry, $config,
-            $cacheTypeList, $resource, $resourceCollection, $data
+            $context,
+            $registry,
+            $config,
+            $cacheTypeList,
+            $resource,
+            $resourceCollection,
+            $data
         );
     }
 
     /**
      * Deserialize JSON string to array before displaying in grid.
+     *
+     * @return self
      */
     public function afterLoad(): self
     {
@@ -57,6 +76,8 @@ class AgentRegistry extends Value
 
     /**
      * Validate and serialize grid rows to JSON before saving.
+     *
+     * @return self
      */
     public function beforeSave(): self
     {
@@ -80,19 +101,19 @@ class AgentRegistry extends Value
 
             // Validate DID format
             if (!str_starts_with($did, 'did:')) {
-                $this->messageManager->addWarningMessage(
-                    __('Skipped agent "%1" — DID must start with "did:" (got: %2)',
-                        $row['name'] ?? 'unnamed', $did)
+                $message = __(
+                    'Skipped agent "%1" — DID must start with "did:" (got: %2)',
+                    $row['name'] ?? 'unnamed',
+                    $did
                 );
+                $this->messageManager->addWarningMessage($message);
                 continue;
             }
 
             // Profile is required
             if (empty($row['profile'])) {
-                $this->messageManager->addWarningMessage(
-                    __('Skipped agent "%1" — please select a capability profile.',
-                        $row['name'] ?? $did)
-                );
+                $message = __('Skipped agent "%1" — please select a capability profile.', $row['name'] ?? $did);
+                $this->messageManager->addWarningMessage($message);
                 continue;
             }
 

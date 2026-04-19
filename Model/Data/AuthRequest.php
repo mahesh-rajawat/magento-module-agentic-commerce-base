@@ -13,6 +13,8 @@ use MSR\AgenticUcp\Api\Data\AuthRequestInterface;
 class AuthRequest extends DataObject implements AuthRequestInterface
 {
     /**
+     * Get agent DID.
+     *
      * @return string
      */
     public function getDid(): string
@@ -21,6 +23,8 @@ class AuthRequest extends DataObject implements AuthRequestInterface
     }
 
     /**
+     * Set agent DID.
+     *
      * @param string $did
      * @return static
      */
@@ -30,6 +34,8 @@ class AuthRequest extends DataObject implements AuthRequestInterface
     }
 
     /**
+     * Get signed JWT for verification.
+     *
      * @return string
      */
     public function getSignedJwt(): string
@@ -38,6 +44,8 @@ class AuthRequest extends DataObject implements AuthRequestInterface
     }
 
     /**
+     * Set the signed JWT.
+     *
      * @param string $signedJwt
      * @return static
      */
@@ -47,6 +55,8 @@ class AuthRequest extends DataObject implements AuthRequestInterface
     }
 
     /**
+     * Get the list of requested capabilities.
+     *
      * @return array
      */
     public function getRequestedCapabilities(): array
@@ -55,6 +65,8 @@ class AuthRequest extends DataObject implements AuthRequestInterface
     }
 
     /**
+     * Set the requested capabilities.
+     *
      * @param array $capabilities
      * @return static
      */

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Block\Adminhtml\Config;
@@ -25,10 +26,26 @@ use MSR\AgenticUcp\Block\Adminhtml\Config\Column\YesNoSelect;
  */
 class AgentRegistry extends AbstractFieldArray
 {
-    private ?ProfileSelect    $profileRenderer    = null;
-    private ?TrustLevelSelect $trustRenderer      = null;
-    private ?YesNoSelect      $yesNoRenderer      = null;
+    /**
+     * @var ProfileSelect|null
+     */
+    private ?ProfileSelect $profileRenderer = null;
 
+    /**
+     * @var TrustLevelSelect|null
+     */
+    private ?TrustLevelSelect $trustRenderer = null;
+
+    /**
+     * @var YesNoSelect|null
+     */
+    private ?YesNoSelect $yesNoRenderer = null;
+
+    /**
+     * Prepare the grid columns for rendering.
+     *
+     * @return void
+     */
     protected function _prepareToRender(): void
     {
         $this->addColumn('name', [
@@ -95,6 +112,9 @@ class AgentRegistry extends AbstractFieldArray
 
     /**
      * Populate dropdown values when loading saved rows.
+     *
+     * @param DataObject $row
+     * @return void
      */
     protected function _prepareArrayRow(DataObject $row): void
     {
@@ -121,8 +141,11 @@ class AgentRegistry extends AbstractFieldArray
         $row->setData('option_extra_attrs', $options);
     }
 
-    // ── Column renderer helpers ───────────────────────────────────────────────
-
+    /**
+     * Get or create the profile dropdown renderer.
+     *
+     * @return ProfileSelect
+     */
     private function getProfileRenderer(): ProfileSelect
     {
         if ($this->profileRenderer === null) {
@@ -135,6 +158,11 @@ class AgentRegistry extends AbstractFieldArray
         return $this->profileRenderer;
     }
 
+    /**
+     * Get or create the trust level dropdown renderer.
+     *
+     * @return TrustLevelSelect
+     */
     private function getTrustRenderer(): TrustLevelSelect
     {
         if ($this->trustRenderer === null) {
@@ -147,6 +175,11 @@ class AgentRegistry extends AbstractFieldArray
         return $this->trustRenderer;
     }
 
+    /**
+     * Get or create the Yes/No dropdown renderer.
+     *
+     * @return YesNoSelect
+     */
     private function getYesNoRenderer(): YesNoSelect
     {
         if ($this->yesNoRenderer === null) {

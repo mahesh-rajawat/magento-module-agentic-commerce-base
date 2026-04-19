@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 use Magento\Framework\Component\ComponentRegistrar;
@@ -8,4 +9,3 @@ ComponentRegistrar::register(
     'MSR_AgenticUcp',
     __DIR__
 );
-

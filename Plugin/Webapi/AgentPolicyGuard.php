@@ -46,13 +46,14 @@ class AgentPolicyGuard
     ];
 
     /**
-     * @param RequestInterface      $request
-     * @param TokenValidator        $tokenValidator
-     * @param RateLimiter           $rateLimiter
-     * @param OrderValueGuard       $orderValueGuard
+     * @param RequestInterface $request
+     * @param TokenValidator $tokenValidator
+     * @param RateLimiter $rateLimiter
+     * @param OrderValueGuard $orderValueGuard
      * @param HumanConfirmationGate $confirmationGate
-     * @param AuditLogger           $auditLogger
-     * @param UcpReader             $ucpReader
+     * @param AuditLogger $auditLogger
+     * @param AgentConfigProvider $configProvider
+     * @param Capabilities $capabilities
      */
     public function __construct(
         private readonly RequestInterface $request,
@@ -95,7 +96,7 @@ class AgentPolicyGuard
             }
         }
 
-        // ── 1. Extract and validate Bearer token ──────────────────────────
+        // 1. Extract and validate Bearer token
         $token = $this->extractBearerToken($request);
         if ($token === null) {
             throw new AuthorizationException(
@@ -108,7 +109,7 @@ class AgentPolicyGuard
         $grantedCaps = $claims['capabilities'] ?? [];
         $agentConfig = $this->loadAgentConfig($did);
 
-        // ── 2. Capability check ───────────────────────────────────────────
+        // 2. Capability check
         $requiredCap = $this->resolveRequiredCapability($path);
         if ($requiredCap !== null && !in_array($requiredCap, $grantedCaps, true)) {
             $this->auditLogger->log($did, $path, 'DENIED', $requiredCap);
@@ -117,7 +118,7 @@ class AgentPolicyGuard
             );
         }
 
-        // ── 3. Rate limit check ───────────────────────────────────────────
+        // 3. Rate limit check
         $rateLimit = (int)($agentConfig['policies']['rate_limit_per_minute'] ?? 0);
         if ($rateLimit > 0 && !$this->rateLimiter->allow($did, $rateLimit)) {
             $this->auditLogger->log($did, $path, 'RATE_LIMITED');
@@ -126,7 +127,7 @@ class AgentPolicyGuard
             );
         }
 
-        // ── 4. Order value check (order.place routes only) ────────────────
+        // 4. Order value check (order.place routes only)
         if ($requiredCap === 'order.place') {
             $maxValue = (float)($agentConfig['permissions']['max_order_value'] ?? 0);
             if ($maxValue > 0) {
@@ -135,18 +136,16 @@ class AgentPolicyGuard
             }
         }
 
-        // ── 5. Human confirmation gate (mutating requests only) ───────────
-        $requiredCap    = $this->resolveRequiredCapability($path);
-        $isHighRisk     = in_array($requiredCap,
-            $this->capabilities->getHighRiskCapabilities(), true);
-        $needsConfirm   = $isHighRisk
-            || $this->configProvider->requiresHumanConfirmation($agentConfig);
+        // 5. Human confirmation gate (mutating requests only)
+        $requiredCap  = $this->resolveRequiredCapability($path);
+        $isHighRisk   = in_array($requiredCap, $this->capabilities->getHighRiskCapabilities(), true);
+        $needsConfirm = $isHighRisk || $this->configProvider->requiresHumanConfirmation($agentConfig);
 
         if ($needsConfirm && $this->isMutatingRequest($request)) {
             $this->confirmationGate->check($request, $did);
         }
 
-        // ── 6. Audit log (ALLOWED) ────────────────────────────────────────
+        // 6. Audit log (ALLOWED)
         $shouldAudit = (bool)($agentConfig['policies']['audit_log'] ?? true);
         if ($shouldAudit) {
             $this->auditLogger->log($did, $path, 'ALLOWED', $requiredCap);
@@ -156,6 +155,8 @@ class AgentPolicyGuard
     }
 
     /**
+     * Extract the Bearer token from the Authorization header.
+     *
      * @param RequestInterface $request
      * @return string|null
      */
@@ -169,6 +170,8 @@ class AgentPolicyGuard
     }
 
     /**
+     * Resolve the required capability for the given request path.
+     *
      * @param string $path
      * @return string|null
      */
@@ -183,6 +186,8 @@ class AgentPolicyGuard
     }
 
     /**
+     * Load the agent config for the given DID.
+     *
      * @param string $did
      * @return array
      */
@@ -192,6 +197,8 @@ class AgentPolicyGuard
     }
 
     /**
+     * Extract the order grand total from the request body.
+     *
      * @param RequestInterface $request
      * @return float
      */
@@ -206,6 +213,8 @@ class AgentPolicyGuard
     }
 
     /**
+     * Check whether the request is a mutating HTTP method.
+     *
      * @param RequestInterface $request
      * @return bool
      */

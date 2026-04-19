@@ -42,6 +42,8 @@ class Converter implements ConverterInterface
     }
 
     /**
+     * Parse the identity block from an agent DOM element.
+     *
      * @param \DOMElement $agent
      * @return array
      */
@@ -64,6 +66,8 @@ class Converter implements ConverterInterface
     }
 
     /**
+     * Parse the capabilities block from an agent DOM element.
+     *
      * @param \DOMElement $agent
      * @return array
      */
@@ -88,6 +92,8 @@ class Converter implements ConverterInterface
     }
 
     /**
+     * Parse the permissions block from an agent DOM element.
+     *
      * @param \DOMElement $agent
      * @return array
      */
@@ -131,6 +137,8 @@ class Converter implements ConverterInterface
     }
 
     /**
+     * Parse the policies block from an agent DOM element.
+     *
      * @param \DOMElement $agent
      * @return array
      */
@@ -163,6 +171,8 @@ class Converter implements ConverterInterface
     }
 
     /**
+     * Find a direct child element by tag name.
+     *
      * @param \DOMElement $parent
      * @param string $tagName
      * @return \DOMElement|null

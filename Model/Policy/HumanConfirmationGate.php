@@ -31,6 +31,7 @@ class HumanConfirmationGate
 
     /**
      * Checks for a valid human confirmation token on mutating requests.
+     *
      * Throws a LocalizedException if confirmation is missing or invalid,
      * prompting the agent to pause and obtain approval.
      *
@@ -76,6 +77,8 @@ class HumanConfirmationGate
     }
 
     /**
+     * Check whether a confirmation token is valid for the given agent DID.
+     *
      * @param string $token
      * @param string $did
      * @return bool
@@ -87,6 +90,8 @@ class HumanConfirmationGate
     }
 
     /**
+     * Invalidate a confirmation token so it cannot be reused.
+     *
      * @param string $token
      * @param string $did
      * @return void

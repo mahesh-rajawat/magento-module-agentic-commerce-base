@@ -8,450 +8,467 @@ hitting your local Magento store via UCP.
 ## Overview
 
 ```
-Phase A  →  Set up Magento + install module
-Phase B  →  Generate DID + register it
-Phase C  →  Configure + run the test script
-Phase D  →  Test with Claude or Ollama as the agent brain
+Phase A  →  Install both modules
+Phase B  →  Admin panel — register your agent
+Phase C  →  Generate DID + apply dev patches
+Phase D  →  Configure + run the test scripts
+Phase E  →  Full checkout flow test
+Phase F  →  Live chat via Ollama or Open WebUI
 ```
 
 ---
 
-## Phase A — Magento local setup
+## What changed from the original guide
+
+The agent is no longer registered in ucp.xml. It is registered
+in the Magento admin panel at runtime. ucp.xml now only contains
+capability profiles (profile-readonly, profile-shopping etc).
+The DID and all policies live in the database.
+
+---
+
+## Phase A — Install both modules
 
 ### A1. Requirements
 
-| Requirement      | Version      |
-|------------------|--------------|
-| PHP              | 8.1 or 8.2   |
-| MySQL            | 8.0+         |
-| Redis            | 6.0+ (for rate limiting) |
-| Nginx / Apache   | any          |
-| Composer         | 2.x          |
-| OpenSSL PHP ext  | enabled      |
+| Requirement | Version |
+|---|---|
+| Magento | 2.4.4+ (Warden recommended for local) |
+| PHP | 8.1 or 8.2 |
+| MySQL | 8.0+ |
+| Redis | 6.0+ (required for rate limiting) |
+| OpenSSL PHP ext | enabled |
 
-### A2. Install the module
+### A2. Install base module
 
 ```bash
-# 1. Unzip the module into Magento
-unzip Vendor_AgenticUcp.zip -d /var/www/magento/app/code/
-
-# 2. Enable and compile
-cd /var/www/magento
-php bin/magento module:enable Vendor_AgenticUcp
+unzip MSR_AgenticUcp.zip -d /var/www/html/app/code/
+php bin/magento module:enable MSR_AgenticUcp
 php bin/magento setup:upgrade
 php bin/magento setup:di:compile
 php bin/magento cache:flush
-
-# 3. Verify module is active
-php bin/magento module:status Vendor_AgenticUcp
-# Expected: Module is enabled
+php bin/magento module:status MSR_AgenticUcp
 ```
 
-### A3. Add token secret to env.php
+### A3. Install checkout module
 
-Generate a strong secret:
+```bash
+unzip MSR_AgenticUcpCheckout.zip -d /var/www/html/app/code/
+php bin/magento module:enable MSR_AgenticUcpCheckout
+php bin/magento setup:upgrade
+php bin/magento setup:di:compile
+php bin/magento cache:flush
+```
+
+### A4. Add token secret to env.php
+
 ```bash
 php -r "echo bin2hex(random_bytes(32)) . PHP_EOL;"
-# Example output: 3f8a2c1d9e4b7f6a0d5c8e2b1a9f3d7c...
 ```
 
-Open `app/etc/env.php` and add this block:
+Add to `app/etc/env.php`:
+
 ```php
 'ucp' => [
-    'token_secret' => '3f8a2c1d9e4b7f6a0d5c8e2b1a9f3d7c...',  // your generated value
+    'token_secret' => 'paste-generated-secret-here',
 ],
 ```
 
-Then flush cache:
-```bash
-php bin/magento cache:flush
-```
-
-### A4. Quick smoke test
+### A5. Verify discovery endpoint
 
 ```bash
-curl -s http://localhost/.well-known/ucp.json | python3 -m json.tool
+curl -sk https://default.freshm2.test/.well-known/ucp.json | python3 -m json.tool
 ```
 
-Expected response:
-```json
-{
-  "version": "1.0",
-  "store_url": "http://localhost",
-  "auth_endpoint": "/rest/V1/ucp/auth",
-  "api_base": "/rest/V1/ucp",
-  "agents": [...],
-  "capabilities_offered": [...]
-}
-```
+Expected: JSON manifest with empty agents array (agents added in Phase B).
 
-If this works, Phase A is done.
+If 404: check `etc/frontend/di.xml` has Router registered with sortOrder=22.
 
 ---
 
-## Phase B — Generate your DID and register it
+## Phase B — Admin panel setup
 
-A DID is just a key pair + a publicly accessible JSON file.
-For local testing you do NOT need a public server — we patch
-the resolver to skip HTTP and use a local key directly.
+### B1. Configure store for guest orders
 
-### B1. Generate a key pair
+```
+Stores → Config → Sales → Checkout → Allow Guest Checkout = Yes
+Stores → Config → Sales → Shipping Methods → Flat Rate → Enabled = Yes
+Stores → Config → Sales → Payment Methods → Check/Money Order → Enabled = Yes
+php bin/magento cache:flush
+```
+
+### B2. Register your test agent
+
+Go to `Stores → Configuration → MSR → Agentic UCP → Agent registry`.
+
+Click **Add agent**:
+
+| Field | Value |
+|---|---|
+| Agent name | Local Test Agent |
+| DID | `did:web:default.freshm2.test:agents:test` |
+| Trust level | Trusted |
+| Capability profile | Shopping agent |
+| Active | Yes |
+| Max order value | 500 |
+| Rate limit/min | 30 |
+| Allowed payments | checkmo |
+
+Save Config → `php bin/magento cache:flush`
+
+### B3. Set default policies
+
+`Stores → Config → MSR → Agentic UCP → Default policies`:
+
+- Require human confirmation: Yes
+- Rate limit/min: 30
+- Max order value: 500
+- Audit log: Yes
+- Token TTL: 3600
+
+### B4. Verify agent appears in manifest
 
 ```bash
-# Create directory for your keys
-mkdir -p ~/ucp-keys && cd ~/ucp-keys
-
-# Generate EC P-256 private key
-openssl ecparam -name prime256v1 -genkey -noout -out agent-private.pem
-
-# Extract the public key
-openssl ec -in agent-private.pem -pubout -out agent-public.pem
-
-# View keys (you'll need these in the next steps)
-echo "=== PRIVATE KEY ===" && cat agent-private.pem
-echo "=== PUBLIC KEY ===" && cat agent-public.pem
+curl -sk https://default.freshm2.test/.well-known/ucp.json | python3 -m json.tool
 ```
 
-Keep `agent-private.pem` safe — never commit it to git.
+You should now see the agent in the `agents` array with capabilities listed.
 
-### B2. Create your DID document (for future production use)
+---
 
-This is what you'd host at `https://yourdomain.com/.well-known/did.json`:
+## Phase C — Generate DID and apply dev patches
 
-```json
-{
-  "@context": [
-    "https://www.w3.org/ns/did/v1",
-    "https://w3id.org/security/suites/jws-2020/v1"
-  ],
-  "id": "did:web:yourdomain.com",
-  "verificationMethod": [
-    {
-      "id": "did:web:yourdomain.com#key-1",
-      "type": "JsonWebKey2020",
-      "controller": "did:web:yourdomain.com",
-      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nPASTE YOUR agent-public.pem CONTENT HERE\n-----END PUBLIC KEY-----"
-    }
-  ],
-  "authentication": ["did:web:yourdomain.com#key-1"],
-  "assertionMethod": ["did:web:yourdomain.com#key-1"]
-}
+### C1. Generate a local key pair
+
+```bash
+mkdir -p ~/ucp-keys
+openssl ecparam -name prime256v1 -genkey -noout -out ~/ucp-keys/agent-private.pem
+openssl ec -in ~/ucp-keys/agent-private.pem -pubout -out ~/ucp-keys/agent-public.pem
+cat ~/ucp-keys/agent-public.pem
 ```
 
-For local testing this file is not needed — see B3.
+### C2. Apply dev patches via Claude CLI (recommended)
 
-### B3. Patch the DID resolver for local dev
-
-Because you don't have a live domain locally, we tell Magento
-to use your key directly without HTTP resolution.
-
-Open this file:
-```
-app/code/Vendor/AgenticUcp/Model/Did/Resolver.php
+```bash
+cd /var/www/html
+claude < claude_cli_dev_mode_prompt.md
 ```
 
-Replace the `resolvePublicKey()` method with:
+Applies three patches with original code preserved as comments:
+- Resolver.php: skips HTTP DID resolution, uses local key
+- Generator.php: falls back to dev secret if env.php missing
+- AgentAuth.php: accepts HS256 tokens (what test scripts send)
+
+### C3. Or apply manually
+
+Open `app/code/MSR/AgenticUcp/Model/Did/Resolver.php` and add
+at the top of `resolvePublicKey()`:
 
 ```php
-public function resolvePublicKey(string $did): ?string
-{
-    // LOCAL DEV ONLY — hardcoded key map, skips HTTP fetch
-    // Remove this block before deploying to production!
-    $localKeys = [
-        'did:web:localhost:agents:test' => <<<'PEM'
+$localDevKeys = [
+    'did:web:default.freshm2.test:agents:test' => <<<'PEM'
 -----BEGIN PUBLIC KEY-----
-PASTE THE FULL CONTENT OF ~/ucp-keys/agent-public.pem HERE
-(including the BEGIN/END lines and all base64 content)
+PASTE OUTPUT OF: cat ~/ucp-keys/agent-public.pem
 -----END PUBLIC KEY-----
 PEM,
-    ];
-
-    if (isset($localKeys[$did])) {
-        return trim($localKeys[$did]);
-    }
-
-    // Production: real DID document HTTP resolution
-    if (!str_starts_with($did, 'did:web:')) {
-        return null;
-    }
-    $host = str_replace(['did:web:', ':'], ['', '/'], $did);
-    $url  = "https://{$host}/.well-known/did.json";
-    try {
-        $this->curl->setTimeout(5);
-        $this->curl->get($url);
-        if ($this->curl->getStatus() !== 200) return null;
-        $doc = json_decode($this->curl->getBody(), true);
-        foreach ($doc['verificationMethod'] ?? [] as $method) {
-            if (!empty($method['publicKeyPem'])) return $method['publicKeyPem'];
-        }
-    } catch (\Exception) {
-        return null;
-    }
-    return null;
+];
+if (isset($localDevKeys[$did])) {
+    $key = trim($localDevKeys[$did]);
+    if (!str_contains($key, 'PASTE')) return $key;
 }
 ```
 
-Then flush:
 ```bash
-php bin/magento cache:flush
-php bin/magento setup:di:compile
+php bin/magento setup:di:compile && php bin/magento cache:flush
 ```
 
-### B4. Register the DID in ucp.xml
-
-Open `app/code/Vendor/AgenticUcp/etc/ucp.xml` and confirm
-the `<did>` tag matches exactly what you put in `$localKeys`:
-
-```xml
-<agent id="claude-shopping-agent" active="true">
-    <identity>
-        <name>Claude Agentic Shopper</name>
-        <did>did:web:localhost:agents:test</did>   <!-- must match $localKeys key -->
-        <trust_level>trusted</trust_level>
-    </identity>
-    ...
-</agent>
-```
-
-Flush cache again:
-```bash
-php bin/magento cache:flush
-```
-
-### B5. Verify auth works manually
+### C4. Verify resolver works
 
 ```bash
-# Generate a test JWT with your key
 php -r "
-\$private = file_get_contents('/root/ucp-keys/agent-private.pem');
-\$did     = 'did:web:localhost:agents:test';
-\$now     = time();
-\$b64u    = fn(\$d) => rtrim(strtr(base64_encode(\$d), '+/', '-_'), '=');
-\$h = \$b64u(json_encode(['alg'=>'ES256','typ'=>'JWT']));
-\$p = \$b64u(json_encode(['iss'=>\$did,'aud'=>'http://localhost','iat'=>\$now,'exp'=>\$now+300]));
-\$key = openssl_pkey_get_private(\$private);
-openssl_sign(\"\$h.\$p\", \$sig, \$key, OPENSSL_ALGO_SHA256);
-echo \"\$h.\$p.\".\$b64u(\$sig).PHP_EOL;
+require '/var/www/html/app/bootstrap.php';
+\$om = \Magento\Framework\App\Bootstrap::create(BP, \$_SERVER)->getObjectManager();
+\$r  = \$om->get(\MSR\AgenticUcp\Model\Did\Resolver::class);
+\$k  = \$r->resolvePublicKey('did:web:default.freshm2.test:agents:test');
+echo \$k ? 'OK — key returned' . PHP_EOL : 'FAIL — still null' . PHP_EOL;
 "
 ```
 
-Copy the output JWT and use it:
-
-```bash
-curl -s -X POST http://localhost/rest/V1/ucp/auth \
-  -H "Content-Type: application/json" \
-  -d '{
-    "request": {
-      "did": "did:web:localhost:agents:test",
-      "signed_jwt": "PASTE_JWT_HERE",
-      "requested_capabilities": ["catalog.browse", "cart.manage"]
-    }
-  }' | python3 -m json.tool
-```
-
-Expected response:
-```json
-{
-  "access_token": "eyJhbGci...",
-  "token_type": "Bearer",
-  "expires_in": 3600,
-  "granted_capabilities": ["catalog.browse", "cart.manage"]
-}
-```
-
-Phase B is done when you see the access token.
+Expected: `OK — key returned`
 
 ---
 
-## Phase C — Configure the test script
+## Phase D — Run policy and auth tests
 
-Open `ucp_test.py` and set these three values at the top:
+### D1. Configure ucp_test.py
 
 ```python
-MAGENTO_BASE     = "http://localhost"        # your local Magento URL
-UCP_TOKEN_SECRET = "3f8a2c1d9e4..."          # from app/etc/env.php → ucp.token_secret
-TEST_DID         = "did:web:localhost:agents:test"  # must match ucp.xml <did>
+MAGENTO_BASE         = "https://default.freshm2.test"
+UCP_TOKEN_SECRET     = "your-secret-from-env-php"
+TEST_DID             = "did:web:default.freshm2.test:agents:test"
+ANTHROPIC_API_KEY    = "sk-ant-..."        # for Claude brain
+DEFAULT_OLLAMA_MODEL = "llama3.2:latest"   # for Ollama brain
 ```
 
-For Claude brain, also set:
-```python
-ANTHROPIC_API_KEY = "sk-ant-api03-..."       # from console.anthropic.com
-```
+### D2. Install dependencies
 
-For Ollama brain, also set:
-```python
-OLLAMA_BASE          = "http://localhost:11434"
-DEFAULT_OLLAMA_MODEL = "llama3.1"
-```
-
-Install dependencies:
 ```bash
-# For Claude brain
-pip install anthropic requests
-
-# For Ollama brain only
-pip install requests
+pip install requests anthropic
 ```
 
----
+### D3. Policy tests only (fastest, no AI)
 
-## Phase D — Run the tests
+```bash
+python ucp_test.py --brain ollama --skip-agent
+```
 
-### Option 1: Claude as the agent brain
+Runs: connectivity, discovery, auth, 4 policy checks, rate limit.
+
+### D4. Full test with Claude brain
 
 ```bash
 python ucp_test.py --brain claude
 ```
 
-Claude uses native tool-calling — it receives the UCP tools as
-a structured list, decides which ones to call, and interprets
-the responses. Most reliable for testing.
-
-### Option 2: Ollama as the agent brain (fully local, no internet)
+### D5. Full test with Ollama brain
 
 ```bash
-# Step 1: Pull a model (one time only)
-ollama pull llama3.1        # 4.7GB — best tool use
-# OR
-ollama pull mistral         # 4.1GB — lighter
-# OR
-ollama pull qwen2.5         # 4.7GB — good for non-English
-
-# Step 2: Start Ollama
+ollama pull llama3.2:latest
 ollama serve
+python ucp_test.py --brain ollama --model llama3.2:latest
 
-# Step 3: Run with Ollama brain
-python ucp_test.py --brain ollama
-python ucp_test.py --brain ollama --model mistral
+# Inside Warden Docker — Ollama is on host machine
+python ucp_test.py --brain ollama \
+  --ollama-host http://host.docker.internal:11434
 ```
 
-### Option 3: Skip the AI loop, just test policies
+### D6. What each test validates
 
-```bash
-python ucp_test.py --brain claude --skip-agent
-```
-
-Useful for fast CI checks — runs discovery, auth, policy checks,
-and rate limit test only. No API tokens consumed.
+| Test | Expected result |
+|---|---|
+| 0. Connectivity | HTTP 200, SSL valid |
+| 1. Discovery | Manifest with agent and capabilities |
+| 2. Auth | access_token returned |
+| 3a. No token | 401 |
+| 3b. Tampered token | 401 |
+| 3c. Order over $500 | 422 |
+| 3d. No confirmation header | 400 + instructions |
+| 4. Rate limit (35 req) | 429 after 30th request |
+| 5. AI agent loop | 4+ autonomous tool calls |
 
 ---
 
-## What each test checks
+## Phase E — Full checkout flow test
 
-| Test | What it validates |
-|------|-------------------|
-| 1. Discovery | `/.well-known/ucp.json` returns valid manifest |
-| 2. Auth | DID + JWT → scoped Bearer token issued |
-| 3a. No token | Returns 401 |
-| 3b. Tampered token | Returns 401 |
-| 3c. Order over limit | Returns 422 (max_order_value guard) |
-| 3d. No confirmation | Returns confirmation-required message |
-| 4. Rate limit | 429 triggered after 30 requests/min |
-| 5. AI agent loop | LLM autonomously calls UCP tools 4–8 times |
+### E1. Verify store has products
+
+```bash
+# Get a token first (run --skip-agent once to see the token in output)
+# Then:
+curl -sk https://default.freshm2.test/rest/V1/ucp/catalog \
+  -H "Authorization: Bearer YOUR_TOKEN" | python3 -m json.tool
+```
+
+If empty: `Catalog → Products → Add Product` in admin.
+
+### E2. Configure ucp_checkout_test.py
+
+```python
+MAGENTO_BASE         = "https://default.freshm2.test"
+UCP_TOKEN_SECRET     = "your-secret-from-env-php"
+TEST_DID             = "did:web:default.freshm2.test:agents:test"
+TEST_SKU             = ""              # blank = auto-pick first product
+TEST_EMAIL           = "agent@ucp.local"
+TEST_SHIPPING_METHOD = "flatrate_flatrate"
+TEST_PAYMENT_METHOD  = "checkmo"
+```
+
+### E3. Run manual mode first
+
+```bash
+python ucp_checkout_test.py --manual
+```
+
+Steps through all 13 stages with raw HTTP response at each step.
+Fix any failures before running AI mode.
+
+Expected successful run:
+```
+Step 1   Discover        ✓  manifest returned
+Step 2   Authenticate    ✓  token received
+Step 3   Browse          ✓  N products found
+Step 4   Search          ✓  results returned
+Step 5   Inventory       ✓  SKU in stock
+Step 6   Add to cart     ✓  item added
+Step 7   View cart       ✓  1 item
+Step 8   Shipping methods ✓  flatrate available
+Step 9   Set shipping    ✓  address set, totals collected
+Step 10  Payment methods ✓  checkmo available
+Step 11  Totals          ✓  grand total: USD XX.XX
+Step 12  Place order     ✓  order #000000001 placed
+Step 13  Track order     ✓  status: pending
+```
+
+### E4. Run AI-driven checkout
+
+```bash
+python ucp_checkout_test.py --brain claude
+python ucp_checkout_test.py --brain ollama --model llama3.2:latest
+```
+
+### E5. Common checkout failures
+
+| Symptom | Fix |
+|---|---|
+| Add to cart fails | Check product is In Stock in catalog |
+| Empty shipping methods | Set shipping address first, enable Flat Rate |
+| Order fails | Enable Guest Checkout, verify payment method active |
+| Cart empty between requests | Check Redis running, try cache:flush |
 
 ---
 
-## Troubleshooting
+## Phase F — Live chat via Ollama
 
-### "Agent not registered"
-- Check `<did>` in `ucp.xml` exactly matches `TEST_DID` in `ucp_test.py`
-- Run `php bin/magento cache:flush`
+### F1. Terminal chat
 
-### "Could not resolve DID document"
-- The Resolver patch was not applied, or the key in `$localKeys` is wrong
-- Paste the full public key content including `-----BEGIN/END PUBLIC KEY-----`
-
-### "UCP token signature invalid"
-- `UCP_TOKEN_SECRET` in `ucp_test.py` does not match `ucp.token_secret` in `env.php`
-- Copy the exact value — no extra spaces or newlines
-
-### "Cannot connect to Magento"
-- Check Magento is running: `curl http://localhost/`
-- Check your `MAGENTO_BASE` URL (no trailing slash)
-
-### Rate limit not triggering
-- Redis must be running and configured as Magento's cache backend
-- Check `app/etc/env.php` → `cache` section uses Redis
-- Verify `rate_limit_per_minute` is set in `ucp.xml`
-
-### Ollama model not found
 ```bash
-ollama list            # see pulled models
-ollama pull llama3.1   # pull if missing
+python ucp_chat.py
 ```
 
-### Ollama tool loop gives random JSON
-- Switch to a better model: `--model qwen2.5` or `--model llama3.1:70b`
-- Or use `--brain claude` for reliable tool use
+Type naturally:
+```
+You: show me products under $30
+You: add the cheapest shirt to my cart
+You: ship to Austin TX, use flat rate
+You: what is my total?
+You: place the order, email me@example.com
+```
+
+### F2. Open WebUI (visual interface)
+
+```bash
+docker run -d --network=host \
+  -v open-webui:/app/backend/data \
+  -e OLLAMA_BASE_URL=http://localhost:11434 \
+  --name open-webui \
+  ghcr.io/open-webui/open-webui:main
+```
+
+Open `http://localhost:8080`, go to `Workspace → Tools → + New Tool`,
+paste the UCP tool plugin, set `MAGENTO_BASE` and `UCP_TOKEN_SECRET`.
+
+### F3. Model recommendations
+
+| Model | Size | Tool use |
+|---|---|---|
+| `qwen2.5:7b` | 4.4GB | Best overall |
+| `llama3.1:8b` | 4.7GB | Good |
+| `mistral:7b` | 4.1GB | Fast |
+| `llama3.2:3b` | 2.0GB | Basic — limited RAM only |
 
 ---
 
 ## Verify the audit log
 
-After running the tests, check what was recorded:
-
-```sql
--- Connect to Magento database
-SELECT agent_did, request_path, capability, outcome, created_at
-FROM ucp_audit_log
-ORDER BY created_at DESC
-LIMIT 20;
+```bash
+warden shell
+mysql -u magento -pmagento magento -e "
+  SELECT agent_did, request_path, capability_label, outcome, created_at
+  FROM ucp_audit_log
+  ORDER BY created_at DESC LIMIT 20;
+"
 ```
 
-You should see rows with outcome = ALLOWED, DENIED, and RATE_LIMITED.
+`capability_label` shows human names (Browse catalog, not catalog.browse).
 
 ---
 
-## Production DID registration (when you go live)
-
-When you're ready to deploy to a real server:
-
-1. Host `did.json` at `https://yourdomain.com/.well-known/did.json`
-   (use the template from B2 above)
-
-2. Remove the `$localKeys` block from `Resolver.php`
-
-3. Update `ucp.xml` with the real DID:
-   ```xml
-   <did>did:web:yourdomain.com</did>
-   ```
-
-4. Use ES256 (not HS256) JWT signing with your private key
-
-5. Use a DID registry service if you want discoverability:
-   - Spruce ID: https://spruceid.com
-   - uniresolver.io: resolves any DID method
-   - Walt.id: https://walt.id (hosted DID management)
-
----
-
-## Quick reference: all commands
+## Revert dev patches before production
 
 ```bash
-# Install module
-php bin/magento module:enable Vendor_AgenticUcp
+grep -r "DEV MODE"     app/code/MSR/AgenticUcp/
+grep -r "localDevKeys" app/code/MSR/AgenticUcp/
+# Expected: empty output — no dev code remains
+```
+
+---
+
+## Production deployment checklist
+
+```
+[ ] Dev patches reverted (grep confirms empty)
+[ ] Agent DID updated in admin panel to real domain DID
+[ ] Token secret is strong (32+ random bytes in env.php)
+[ ] Agent uses ES256 (not HS256) JWT signing
+[ ] did.json hosted at https://yourdomain.com/.well-known/did.json
+[ ] Rate limits appropriate for production traffic
+[ ] Human confirmation enabled for high-risk capabilities
+[ ] Redis configured as cache backend
+[ ] Audit log enabled
+```
+
+---
+
+## Quick reference — all commands
+
+```bash
+# Install
+php bin/magento module:enable MSR_AgenticUcp MSR_AgenticUcpCheckout
 php bin/magento setup:upgrade && php bin/magento setup:di:compile
 php bin/magento cache:flush
 
 # Generate keys
-openssl ecparam -name prime256v1 -genkey -noout -out agent-private.pem
-openssl ec -in agent-private.pem -pubout -out agent-public.pem
+openssl ecparam -name prime256v1 -genkey -noout -out ~/ucp-keys/agent-private.pem
+openssl ec -in ~/ucp-keys/agent-private.pem -pubout -out ~/ucp-keys/agent-public.pem
 
-# Smoke test discovery
-curl -s http://localhost/.well-known/ucp.json | python3 -m json.tool
+# Apply dev patches
+claude < claude_cli_dev_mode_prompt.md
 
-# Run tests (Claude brain)
-pip install anthropic requests
+# Smoke test
+curl -sk https://default.freshm2.test/.well-known/ucp.json | python3 -m json.tool
+
+# Policy tests only
+python ucp_test.py --brain ollama --skip-agent
+
+# Full test — Claude
 python ucp_test.py --brain claude
 
-# Run tests (Ollama brain)
+# Full test — Ollama
 ollama pull llama3.1 && ollama serve
-pip install requests
-python ucp_test.py --brain ollama
+python ucp_test.py --brain ollama --model llama3.1
 
-# Policy tests only (no AI loop)
-python ucp_test.py --brain claude --skip-agent
+# Checkout flow — manual
+python ucp_checkout_test.py --manual
+
+# Checkout flow — AI
+python ucp_checkout_test.py --brain claude
+
+# Terminal chat
+python ucp_chat.py
 
 # Audit log
-mysql -u root magento -e "SELECT * FROM ucp_audit_log ORDER BY created_at DESC LIMIT 20;"
+mysql -u magento -pmagento magento \
+  -e "SELECT * FROM ucp_audit_log ORDER BY created_at DESC LIMIT 20;"
+
+# Verify clean before deploy
+grep -r "DEV MODE" app/code/MSR/AgenticUcp/
 ```
+
+---
+
+## Troubleshooting quick reference
+
+| Error | Cause | Fix |
+|---|---|---|
+| 404 `/.well-known/ucp.json` | Router not registered | Check `etc/frontend/di.xml` sortOrder=22 |
+| Empty agents in manifest | Agent not in admin panel | Stores → Config → MSR → Agentic UCP → Add agent |
+| "Agent not registered" | DID mismatch | Admin panel DID must match TEST_DID exactly |
+| "Could not resolve DID" | Resolver patch missing or key not pasted | Check `$localDevKeys` has real key |
+| "JWT issuer mismatch" | Wrong iss in JWT | Decode: `cut -d'.' -f2 \| base64 -d` check `iss` |
+| "Token signature invalid" | Secret mismatch | env.php secret must match UCP_TOKEN_SECRET |
+| 404 on `/V1/ucp/catalog` | Checkout module not installed | Install MSR_AgenticUcpCheckout |
+| 404 instead of 401 | Same as above | Routes only exist in checkout module |
+| "More than one node" XML | Duplicate agent in child ucp.xml | Remove agent from child module's ucp.xml |
+| Rate limit not triggering | Redis not configured | Check env.php cache section |
+| SSL error | Warden self-signed cert | `export REQUESTS_CA_BUNDLE=~/.warden/ssl/rootca/certs/ca.cert.pem` |
+| Ollama unreachable | Docker networking | `--ollama-host http://host.docker.internal:11434` |

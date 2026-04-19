@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Model\Config\Source;
@@ -6,17 +7,28 @@ namespace MSR\AgenticUcp\Model\Config\Source;
 use Magento\Framework\Data\OptionSourceInterface;
 use MSR\AgenticUcp\Model\Config\UcpReader;
 
+/**
+ * Provides agent profile options sourced from ucp.xml profile-* entries.
+ */
 class AgentProfiles implements OptionSourceInterface
 {
+    /**
+     * @param UcpReader $ucpReader
+     * @param Capabilities $capabilities
+     */
     public function __construct(
         private readonly UcpReader    $ucpReader,
         private readonly Capabilities $capabilities,
-    ) {}
+    ) {
+    }
 
     /**
      * Builds the dropdown from profile IDs in ucp.xml.
+     *
      * Any module can add profiles by dropping a ucp.xml —
      * they appear here automatically.
+     *
+     * @return array
      */
     public function toOptionArray(): array
     {
@@ -53,7 +65,11 @@ class AgentProfiles implements OptionSourceInterface
 
     /**
      * Get the capabilities array for a given profile ID.
+     *
      * Used by AgentConfigProvider when building the agent config.
+     *
+     * @param string $profileId
+     * @return array
      */
     public function getProfileCapabilities(string $profileId): array
     {
@@ -61,6 +77,12 @@ class AgentProfiles implements OptionSourceInterface
         return $config['agent'][$profileId]['capabilities'] ?? [];
     }
 
+    /**
+     * Convert a profile ID to a human-readable label.
+     *
+     * @param string $id
+     * @return string
+     */
     private function humanizeProfileId(string $id): string
     {
         // "profile-shopping" → "Shopping agent"

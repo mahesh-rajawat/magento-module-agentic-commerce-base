@@ -24,6 +24,8 @@ class Router implements RouterInterface
     }
 
     /**
+     * Route /.well-known/ucp.json to the UCP manifest controller.
+     *
      * @param RequestInterface $request
      * @return ActionInterface|null
      */

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Model\Config;
@@ -8,6 +9,9 @@ use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Store\Model\ScopeInterface;
 use MSR\AgenticUcp\Model\Config\Source\AgentProfiles;
 
+/**
+ * Provides merged agent configuration from DB (admin panel) and ucp.xml defaults.
+ */
 class AgentConfigProvider
 {
     private const XML_PATH_ENABLED        = 'msr_agentic_ucp/general/enabled';
@@ -18,13 +22,25 @@ class AgentConfigProvider
     private const XML_PATH_AUDIT_LOG      = 'msr_agentic_ucp/defaults/audit_log';
     private const XML_PATH_TTL            = 'msr_agentic_ucp/defaults/ttl_seconds';
 
+    /**
+     * @param ScopeConfigInterface $scopeConfig
+     * @param Json $json
+     * @param UcpReader $ucpReader
+     * @param AgentProfiles $agentProfiles
+     */
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig,
         private readonly Json $json,
         private readonly UcpReader $ucpReader,
         private readonly AgentProfiles $agentProfiles
-    ) {}
+    ) {
+    }
 
+    /**
+     * Check whether the UCP integration is enabled.
+     *
+     * @return bool
+     */
     public function isEnabled(): bool
     {
         return $this->scopeConfig->isSetFlag(self::XML_PATH_ENABLED);
@@ -32,7 +48,11 @@ class AgentConfigProvider
 
     /**
      * Get merged agent config — DB config wins over ucp.xml defaults.
+     *
      * This is the single method everything else calls.
+     *
+     * @param string $did
+     * @return array|null
      */
     public function getAgentConfig(string $did): ?array
     {
@@ -87,6 +107,8 @@ class AgentConfigProvider
 
     /**
      * Get all active agents from both sources for the manifest endpoint.
+     *
+     * @return array
      */
     public function getAllAgents(): array
     {
@@ -101,7 +123,9 @@ class AgentConfigProvider
         // DB agents override or extend xml agents
         foreach ($this->getDbAgents() as $dbAgent) {
             $did = $dbAgent['did'] ?? '';
-            if (empty($did)) continue;
+            if (empty($did)) {
+                continue;
+            }
             if (isset($xmlAgents[$did])) {
                 $xmlAgents[$did] = $this->merge($xmlAgents[$did], $dbAgent);
             } elseif (!empty($dbAgent['active'])) {
@@ -112,8 +136,12 @@ class AgentConfigProvider
         return array_values($xmlAgents);
     }
 
-    // ── Policy getters (with per-agent override support) ──────────────────
-
+    /**
+     * Check whether human confirmation is required for an agent.
+     *
+     * @param array|null $agentConfig
+     * @return bool
+     */
     public function requiresHumanConfirmation(?array $agentConfig = null): bool
     {
         // Per-agent override takes priority
@@ -124,6 +152,12 @@ class AgentConfigProvider
         return $this->scopeConfig->isSetFlag(self::XML_PATH_HUMAN_CONFIRM);
     }
 
+    /**
+     * Get the rate limit for an agent.
+     *
+     * @param array|null $agentConfig
+     * @return int
+     */
     public function getRateLimit(?array $agentConfig = null): int
     {
         if ($agentConfig !== null
@@ -133,6 +167,12 @@ class AgentConfigProvider
         return (int)$this->scopeConfig->getValue(self::XML_PATH_RATE_LIMIT);
     }
 
+    /**
+     * Get the maximum order value for an agent.
+     *
+     * @param array|null $agentConfig
+     * @return float
+     */
     public function getMaxOrderValue(?array $agentConfig = null): float
     {
         if ($agentConfig !== null
@@ -142,6 +182,12 @@ class AgentConfigProvider
         return (float)$this->scopeConfig->getValue(self::XML_PATH_MAX_ORDER);
     }
 
+    /**
+     * Check whether audit logging is enabled for an agent.
+     *
+     * @param array|null $agentConfig
+     * @return bool
+     */
     public function isAuditEnabled(?array $agentConfig = null): bool
     {
         if ($agentConfig !== null
@@ -151,6 +197,12 @@ class AgentConfigProvider
         return $this->scopeConfig->isSetFlag(self::XML_PATH_AUDIT_LOG);
     }
 
+    /**
+     * Get the token TTL in seconds for an agent.
+     *
+     * @param array|null $agentConfig
+     * @return int
+     */
     public function getTtl(?array $agentConfig = null): int
     {
         if ($agentConfig !== null
@@ -160,12 +212,17 @@ class AgentConfigProvider
         return (int)$this->scopeConfig->getValue(self::XML_PATH_TTL);
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────
-
+    /**
+     * Load and decode registered agents from admin panel config.
+     *
+     * @return array
+     */
     private function getDbAgents(): array
     {
         $raw = $this->scopeConfig->getValue(self::XML_PATH_REGISTRY);
-        if (empty($raw)) return [];
+        if (empty($raw)) {
+            return [];
+        }
         try {
             return $this->json->unserialize($raw) ?? [];
         } catch (\Exception) {
@@ -173,6 +230,13 @@ class AgentConfigProvider
         }
     }
 
+    /**
+     * Merge DB agent overrides into an xml-sourced agent config.
+     *
+     * @param array $base
+     * @param array $db
+     * @return array
+     */
     private function merge(array $base, array $db): array
     {
         // DB overrides specific fields — never overwrites capabilities
@@ -209,6 +273,12 @@ class AgentConfigProvider
         return $base;
     }
 
+    /**
+     * Build a full agent config array from a DB-only agent record.
+     *
+     * @param array $db
+     * @return array
+     */
     private function buildAgentFromDb(array $db): array
     {
         return [

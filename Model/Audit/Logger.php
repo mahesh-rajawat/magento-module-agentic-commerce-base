@@ -16,6 +16,7 @@ class Logger
 
     /**
      * @param ResourceConnection $resourceConnection
+     * @param Capabilities $capabilities
      */
     public function __construct(
         private readonly ResourceConnection $resourceConnection,
@@ -40,6 +41,7 @@ class Logger
     ): void {
         try {
             $connection = $this->resourceConnection->getConnection();
+            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null; // phpcs:ignore
             $connection->insert(
                 $this->resourceConnection->getTableName(self::TABLE),
                 [
@@ -49,8 +51,7 @@ class Logger
                     'capability_label'  => $capability
                         ? $this->capabilities->getLabel($capability)
                         : null,
-                    // phpcs:ignore Magento2.Security.SuperglobalUsage
-                    'ip_address'   => $_SERVER['REMOTE_ADDR'] ?? null,
+                    'ip_address'   => $ipAddress,
                 ]
             );
         } catch (\Exception $e) { // phpcs:ignore Magento2.CodeAnalysis.EmptyBlock

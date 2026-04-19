@@ -2,25 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * ╔══════════════════════════════════════════════════════════╗
- * ║  LOCAL DEV MODE — MODIFIED FOR TESTING                   ║
- * ║  File: Model/AgentAuth.php                               ║
- * ╠══════════════════════════════════════════════════════════╣
- * ║  What changed:                                           ║
- * ║    verifyJwt() accepts both ES256 (production) and       ║
- * ║    HS256 (dev) signed tokens. The test script sends      ║
- * ║    HS256 tokens signed with the UCP token secret,        ║
- * ║    which is much simpler than ES256 + real key infra.    ║
- * ║                                                          ║
- * ║  To revert for production commit:                        ║
- * ║    1. Delete the // DEV MODE block in verifyJwt()        ║
- * ║    2. Uncomment all lines prefixed with // ORIGINAL:     ║
- * ║    3. Remove this file-level comment                     ║
- * ║    4. Run: php bin/magento cache:flush                   ║
- * ╚══════════════════════════════════════════════════════════╝
- */
-
 namespace MSR\AgenticUcp\Model;
 
 use Magento\Framework\Exception\AuthorizationException;
@@ -30,7 +11,6 @@ use MSR\AgenticUcp\Api\AgentAuthInterface;
 use MSR\AgenticUcp\Api\Data\AuthRequestInterface;
 use MSR\AgenticUcp\Api\Data\AuthTokenInterface;
 use MSR\AgenticUcp\Model\Config\AgentConfigProvider;
-use MSR\AgenticUcp\Model\Config\UcpReader;
 use MSR\AgenticUcp\Model\Did\Resolver as DidResolver;
 use MSR\AgenticUcp\Model\Token\Generator as TokenGenerator;
 use Psr\Log\LoggerInterface;
@@ -41,7 +21,7 @@ use Psr\Log\LoggerInterface;
 class AgentAuth implements AgentAuthInterface
 {
     /**
-     * @param UcpReader $ucpReader
+     * @param AgentConfigProvider $configProvider
      * @param DidResolver $didResolver
      * @param TokenGenerator $tokenGenerator
      * @param ObjectManagerInterface $objectManager
@@ -163,7 +143,6 @@ class AgentAuth implements AgentAuthInterface
         // phpcs:ignore Magento2.Functions.DiscouragedFunction
         $signature    = base64_decode(strtr($sigB64, '-_', '+/'));
 
-        // ── DEV MODE ─────────────────────────────────────────────────────────
         // Accept HS256 tokens (signed with UCP token secret) in addition to
         // production ES256 tokens. The test script (ucp_test.py) sends HS256
         // because it is much simpler to generate without a key management system.
@@ -210,7 +189,6 @@ class AgentAuth implements AgentAuthInterface
                 );
             }
         }
-        // ── END DEV MODE ──────────────────────────────────────────────────────
     }
 
     /**

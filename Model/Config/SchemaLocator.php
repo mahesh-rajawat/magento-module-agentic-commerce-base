@@ -12,6 +12,8 @@ use Magento\Framework\Config\SchemaLocatorInterface;
 class SchemaLocator implements SchemaLocatorInterface
 {
     /**
+     * Get the path to the full XSD schema.
+     *
      * @return string|null
      */
     public function getSchema(): ?string
@@ -20,6 +22,8 @@ class SchemaLocator implements SchemaLocatorInterface
     }
 
     /**
+     * Get the path to the per-file XSD schema.
+     *
      * @return string|null
      */
     public function getPerFileSchema(): ?string

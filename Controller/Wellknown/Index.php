@@ -29,6 +29,8 @@ class Index implements HttpGetActionInterface
     }
 
     /**
+     * Render the UCP manifest as JSON.
+     *
      * @return ResultInterface|ResponseInterface
      */
     public function execute(): ResultInterface|ResponseInterface

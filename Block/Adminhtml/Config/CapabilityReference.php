@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Block\Adminhtml\Config;
@@ -8,8 +9,16 @@ use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
 use MSR\AgenticUcp\Model\Config\Source\Capabilities;
 
+/**
+ * Renders a read-only capability reference table in admin config.
+ */
 class CapabilityReference extends Field
 {
+    /**
+     * @param Capabilities $capabilities
+     * @param Context $context
+     * @param array $data
+     */
     public function __construct(
         private readonly Capabilities $capabilities,
         Context $context,
@@ -18,6 +27,12 @@ class CapabilityReference extends Field
         parent::__construct($context, $data);
     }
 
+    /**
+     * Render the capability reference table HTML.
+     *
+     * @param AbstractElement $element
+     * @return string
+     */
     protected function _getElementHtml(AbstractElement $element): string
     {
         $rows = '';

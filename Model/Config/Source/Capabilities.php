@@ -1,10 +1,14 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Model\Config\Source;
 
 use Magento\Framework\Data\OptionSourceInterface;
 
+/**
+ * Provides the full capability list for UCP agents.
+ */
 class Capabilities implements OptionSourceInterface
 {
     /**
@@ -81,6 +85,9 @@ class Capabilities implements OptionSourceInterface
     /** @var array<int, array{value:string, label:string, comment:string, risk:string, module:string}> */
     private readonly array $allCapabilities;
 
+    /**
+     * @param array $additionalCapabilities
+     */
     public function __construct(
         array $additionalCapabilities = []
     ) {
@@ -92,11 +99,16 @@ class Capabilities implements OptionSourceInterface
         $this->allCapabilities = array_values($merged);
     }
 
+    /**
+     * Return all capabilities as a flat option array with risk indicators.
+     *
+     * @return array
+     */
     public function toOptionArray(): array
     {
         $options = [];
         foreach ($this->allCapabilities as $cap) {
-            $risk    = match($cap['risk']) {
+            $risk    = match ($cap['risk']) {
                 'high'   => '⚠ ',
                 'medium' => '◆ ',
                 default  => '● ',
@@ -109,6 +121,11 @@ class Capabilities implements OptionSourceInterface
         return $options;
     }
 
+    /**
+     * Return capabilities grouped by risk level.
+     *
+     * @return array
+     */
     public function toGroupedOptionArray(): array
     {
         $groups = ['low' => [], 'medium' => [], 'high' => []];
@@ -128,6 +145,12 @@ class Capabilities implements OptionSourceInterface
         ];
     }
 
+    /**
+     * Get the human-readable label for a capability code.
+     *
+     * @param string $code
+     * @return string
+     */
     public function getLabel(string $code): string
     {
         foreach ($this->allCapabilities as $cap) {
@@ -138,6 +161,12 @@ class Capabilities implements OptionSourceInterface
         return $code; // fallback: return the code itself
     }
 
+    /**
+     * Get the risk level for a capability code.
+     *
+     * @param string $code
+     * @return string
+     */
     public function getRisk(string $code): string
     {
         foreach ($this->allCapabilities as $cap) {
@@ -148,6 +177,11 @@ class Capabilities implements OptionSourceInterface
         return 'low';
     }
 
+    /**
+     * Return all capability codes classified as high risk.
+     *
+     * @return array
+     */
     public function getHighRiskCapabilities(): array
     {
         return array_column(
@@ -159,6 +193,11 @@ class Capabilities implements OptionSourceInterface
         );
     }
 
+    /**
+     * Return all capability code values.
+     *
+     * @return array
+     */
     public function getAllValues(): array
     {
         return array_column($this->allCapabilities, 'value');

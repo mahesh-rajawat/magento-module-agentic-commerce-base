@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Block\Adminhtml\Config;
@@ -7,8 +8,16 @@ use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Data\Form\Element\AbstractElement;
 
+/**
+ * Renders the UCP token secret configuration status hint in admin.
+ */
 class TokenSecretHint extends Field
 {
+    /**
+     * @param DeploymentConfig $deploymentConfig
+     * @param \Magento\Backend\Block\Template\Context $context
+     * @param array $data
+     */
     public function __construct(
         private readonly DeploymentConfig $deploymentConfig,
         \Magento\Backend\Block\Template\Context $context,
@@ -17,6 +26,12 @@ class TokenSecretHint extends Field
         parent::__construct($context, $data);
     }
 
+    /**
+     * Render the token secret configuration status HTML.
+     *
+     * @param AbstractElement $element
+     * @return string
+     */
     protected function _getElementHtml(AbstractElement $element): string
     {
         $secret      = $this->deploymentConfig->get('ucp/token_secret');

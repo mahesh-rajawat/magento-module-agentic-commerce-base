@@ -1,13 +1,19 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MSR\AgenticUcp\Block\Adminhtml\Config\AgentRegistry;
 
 use Magento\Framework\View\Element\Html\Select;
 
+/**
+ * Trust level dropdown renderer for the AgentRegistry grid.
+ */
 class TrustLevelRenderer extends Select
 {
     /**
+     * Set the input name attribute.
+     *
      * @param string $value
      * @return $this
      */
@@ -17,6 +23,8 @@ class TrustLevelRenderer extends Select
     }
 
     /**
+     * Set the input ID attribute.
+     *
      * @param string $value
      * @return $this
      */
@@ -26,6 +34,8 @@ class TrustLevelRenderer extends Select
     }
 
     /**
+     * Render the trust level dropdown HTML.
+     *
      * @return string
      */
     public function _toHtml(): string
