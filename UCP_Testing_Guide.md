@@ -147,19 +147,7 @@ openssl ec -in ~/ucp-keys/agent-private.pem -pubout -out ~/ucp-keys/agent-public
 cat ~/ucp-keys/agent-public.pem
 ```
 
-### C2. Apply dev patches via Claude CLI (recommended)
-
-```bash
-cd /var/www/html
-claude < claude_cli_dev_mode_prompt.md
-```
-
-Applies three patches with original code preserved as comments:
-- Resolver.php: skips HTTP DID resolution, uses local key
-- Generator.php: falls back to dev secret if env.php missing
-- AgentAuth.php: accepts HS256 tokens (what test scripts send)
-
-### C3. Or apply manually
+### C2. Apply dev patches manually
 
 Open `app/code/MSR/AgenticUcp/Model/Did/Resolver.php` and add
 at the top of `resolvePublicKey()`:
@@ -329,13 +317,54 @@ python ucp_checkout_test.py --brain ollama --model llama3.2:latest
 
 ## Phase F — Live chat via Ollama
 
-### F1. Terminal chat
+Two identical chat clients are provided — use whichever runtime you prefer.
+Both share the same config constants, CLI flags, tool set, and system prompt.
 
+### F1. Python terminal chat
+
+**Requirements:**
 ```bash
-python ucp_chat.py
+pip install requests
 ```
 
-Type naturally:
+**Edit `ucp_chat.py`** — set the three constants at the top:
+```python
+MAGENTO_BASE     = "https://default.freshm2.test"
+UCP_TOKEN_SECRET = "your-secret-from-env-php"
+TEST_DID         = "did:web:default.freshm2.test:agents:test"
+```
+
+**Run:**
+```bash
+python ucp_chat.py
+python ucp_chat.py --model llama3.1
+python ucp_chat.py --model qwen2.5 --ollama-host http://host.docker.internal:11434
+```
+
+### F2. JavaScript terminal chat
+
+**Requirements:** Node.js 18+ — no packages needed.
+
+**Edit `ucp_chat.js`** — set the same three constants:
+```js
+let   MAGENTO_BASE     = 'https://default.freshm2.test';
+const UCP_TOKEN_SECRET = 'your-secret-from-env-php';
+const TEST_DID         = 'did:web:default.freshm2.test:agents:test';
+```
+
+**Run:**
+```bash
+node ucp_chat.js
+node ucp_chat.js --model llama3.1
+node ucp_chat.js --model qwen2.5 --ollama-host http://host.docker.internal:11434
+```
+
+SSL is resolved automatically from `REQUESTS_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`,
+or `~/.warden/ssl/rootca/certs/ca.cert.pem` (Warden default). Falls back to
+`rejectUnauthorized: false` if no CA file is found.
+
+### F3. Example conversation
+
 ```
 You: show me products under $30
 You: add the cheapest shirt to my cart
@@ -344,7 +373,15 @@ You: what is my total?
 You: place the order, email me@example.com
 ```
 
-### F2. Open WebUI (visual interface)
+### F4. CLI flags (both clients)
+
+| Flag | Default | Description |
+|---|---|---|
+| `--model NAME` | `qwen2.5` | Ollama model to use |
+| `--ollama-host URL` | `http://localhost:11434` | Ollama API base URL |
+| `--magento URL` | value in script | Override Magento base URL |
+
+### F5. Open WebUI (visual interface)
 
 ```bash
 docker run -d --network=host \
@@ -357,7 +394,7 @@ docker run -d --network=host \
 Open `http://localhost:8080`, go to `Workspace → Tools → + New Tool`,
 paste the UCP tool plugin, set `MAGENTO_BASE` and `UCP_TOKEN_SECRET`.
 
-### F3. Model recommendations
+### F6. Model recommendations
 
 | Model | Size | Tool use |
 |---|---|---|
@@ -421,9 +458,6 @@ php bin/magento cache:flush
 openssl ecparam -name prime256v1 -genkey -noout -out ~/ucp-keys/agent-private.pem
 openssl ec -in ~/ucp-keys/agent-private.pem -pubout -out ~/ucp-keys/agent-public.pem
 
-# Apply dev patches
-claude < claude_cli_dev_mode_prompt.md
-
 # Smoke test
 curl -sk https://default.freshm2.test/.well-known/ucp.json | python3 -m json.tool
 
@@ -443,8 +477,13 @@ python ucp_checkout_test.py --manual
 # Checkout flow — AI
 python ucp_checkout_test.py --brain claude
 
-# Terminal chat
+# Terminal chat — Python (pip install requests)
 python ucp_chat.py
+python ucp_chat.py --model llama3.1 --ollama-host http://host.docker.internal:11434
+
+# Terminal chat — JavaScript (Node 18+, no packages)
+node ucp_chat.js
+node ucp_chat.js --model llama3.1 --ollama-host http://host.docker.internal:11434
 
 # Audit log
 mysql -u magento -pmagento magento \
@@ -470,5 +509,6 @@ grep -r "DEV MODE" app/code/MSR/AgenticUcp/
 | 404 instead of 401 | Same as above | Routes only exist in checkout module |
 | "More than one node" XML | Duplicate agent in child ucp.xml | Remove agent from child module's ucp.xml |
 | Rate limit not triggering | Redis not configured | Check env.php cache section |
-| SSL error | Warden self-signed cert | `export REQUESTS_CA_BUNDLE=~/.warden/ssl/rootca/certs/ca.cert.pem` |
+| SSL error (Python) | Warden self-signed cert | `export REQUESTS_CA_BUNDLE=~/.warden/ssl/rootca/certs/ca.cert.pem` |
+| SSL error (Node.js) | Warden self-signed cert | `export NODE_EXTRA_CA_CERTS=~/.warden/ssl/rootca/certs/ca.cert.pem` |
 | Ollama unreachable | Docker networking | `--ollama-host http://host.docker.internal:11434` |

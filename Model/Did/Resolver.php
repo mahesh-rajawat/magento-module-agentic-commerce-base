@@ -51,8 +51,7 @@ class Resolver
         $localDevKeys = [
             'did:web:default.freshm2.test:agents:test' => <<<'PEM'
 -----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKvQvvN3+IowV2hWqovvQNUs2h65V
-dUdGryVI4+Dpcornh1ZJIEYRF3h514nMrpNR37OqSm3/lDWijhHN5k+o8Q==
+YOUR_PUBLIC_KEY_HERE
 -----END PUBLIC KEY-----
 PEM,
         ];
