@@ -23,22 +23,11 @@ class Generator
     {
         $secret = $deploymentConfig->get('ucp/token_secret');
 
-        // ORIGINAL: if (empty($secret)) {
-        // ORIGINAL:     throw new \RuntimeException(
-        // ORIGINAL:         'UCP token secret not configured. ' .
-        // ORIGINAL:         'Add "ucp" => ["token_secret" => "<random-string>"] to app/etc/env.php'
-        // ORIGINAL:     );
-        // ORIGINAL: }
-        // ORIGINAL: $this->secret = (string)$secret;
-
-        // Falls back to a hardcoded dev secret so the module works even if
-        // ucp/token_secret is not yet set in app/etc/env.php.
-        // IMPORTANT: this fallback secret is NOT secure — only for local dev.
-        // Always set a real secret in env.php before running tests.
         if (empty($secret)) {
-            $secret = 'dev-only-secret-change-before-production-use-32chars!';
-            // @phpstan-ignore-next-line
-            error_log('[UCP DEV MODE] Using fallback token secret. Set ucp/token_secret in env.php.'); // phpcs:ignore Magento2.Functions.DiscouragedFunction
+            throw new \RuntimeException(
+                'UCP token secret not configured. ' .
+                'Add "ucp" => ["token_secret" => "<random-string>"] to app/etc/env.php'
+            );
         }
         $this->secret = (string)$secret;
     }

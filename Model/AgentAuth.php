@@ -101,7 +101,6 @@ class AgentAuth implements AgentAuthInterface
      * @param string $expectedIssuer
      * @return void
      * @throws AuthorizationException
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     private function verifyJwt(string $jwt, string $publicKeyPem, string $expectedIssuer): void
     {
@@ -112,82 +111,36 @@ class AgentAuth implements AgentAuthInterface
 
         [$headerB64, $payloadB64, $sigB64] = $parts;
 
-        // phpcs:disable Magento2.Functions.DiscouragedFunction
-        $header  = json_decode(base64_decode(strtr($headerB64, '-_', '+/')), true);
+        // phpcs:ignore Magento2.Functions.DiscouragedFunction
         $payload = json_decode(base64_decode(strtr($payloadB64, '-_', '+/')), true);
-        // phpcs:enable Magento2.Functions.DiscouragedFunction
 
-        // ORIGINAL: if (($payload['iss'] ?? '') !== $expectedIssuer) {
-        // ORIGINAL:     throw new AuthorizationException(new Phrase('JWT issuer mismatch.'));
-        // ORIGINAL: }
         if (($payload['iss'] ?? '') !== $expectedIssuer) {
             throw new AuthorizationException(new Phrase('JWT issuer mismatch.'));
         }
 
-        // ORIGINAL: if (($payload['exp'] ?? 0) < time()) {
-        // ORIGINAL:     throw new AuthorizationException(new Phrase('Agent JWT has expired.'));
-        // ORIGINAL: }
         if (($payload['exp'] ?? 0) < time()) {
             throw new AuthorizationException(new Phrase('Agent JWT has expired.'));
         }
 
-        // ORIGINAL: if (($payload['iat'] ?? 0) > time() + 30) {
-        // ORIGINAL:     throw new AuthorizationException(new Phrase('JWT issued in the future.'));
-        // ORIGINAL: }
         if (($payload['iat'] ?? 0) > time() + 30) {
             throw new AuthorizationException(new Phrase('JWT issued in the future.'));
         }
 
-        $alg          = strtoupper($header['alg'] ?? 'ES256');
         $signingInput = "{$headerB64}.{$payloadB64}";
         // phpcs:ignore Magento2.Functions.DiscouragedFunction
         $signature    = base64_decode(strtr($sigB64, '-_', '+/'));
 
-        // Accept HS256 tokens (signed with UCP token secret) in addition to
-        // production ES256 tokens. The test script (ucp_test.py) sends HS256
-        // because it is much simpler to generate without a key management system.
-        //
-        // ORIGINAL: $pubKey = openssl_pkey_get_public($publicKeyPem);
-        // ORIGINAL: if ($pubKey === false) {
-        // ORIGINAL:     throw new AuthorizationException(new Phrase('Could not parse agent public key.'));
-        // ORIGINAL: }
-        // ORIGINAL: $valid = openssl_verify($signingInput, $signature, $pubKey, OPENSSL_ALGO_SHA256);
-        // ORIGINAL: if ($valid !== 1) {
-        // ORIGINAL:     throw new AuthorizationException(
-        // ORIGINAL:         new Phrase('Agent JWT signature verification failed.')
-        // ORIGINAL:     );
-        // ORIGINAL: }
-        if ($alg === 'HS256') {
-            // Dev path: verify HMAC-SHA256 against the UCP token secret
-            /** @var \Magento\Framework\App\DeploymentConfig $deploymentConfig */
-            // phpcs:ignore Magento2.Classes.ObjectInstantiation
-            $deploymentConfig = \Magento\Framework\App\ObjectManager::getInstance()
-                ->get(\Magento\Framework\App\DeploymentConfig::class);
-            $fallback = 'dev-only-secret-change-before-production-use-32chars!';
-            $secret   = (string)($deploymentConfig->get('ucp/token_secret') ?? $fallback);
-            $expected = rtrim(strtr(base64_encode(
-                hash_hmac('sha256', $signingInput, $secret, true)
-            ), '+/', '-_'), '=');
-            if (!hash_equals($expected, $sigB64)) {
-                throw new AuthorizationException(
-                    new Phrase('Agent JWT HS256 signature invalid (dev mode).')
-                );
-            }
-            error_log('[UCP DEV MODE] HS256 token accepted. Use ES256 in production.'); // phpcs:ignore Magento2.Functions.DiscouragedFunction
-        } else {
-            // Production path: verify ES256 against the DID document public key
-            $pubKey = openssl_pkey_get_public($publicKeyPem);
-            if ($pubKey === false) {
-                throw new AuthorizationException(
-                    new Phrase('Could not parse agent public key.')
-                );
-            }
-            $valid = openssl_verify($signingInput, $signature, $pubKey, OPENSSL_ALGO_SHA256);
-            if ($valid !== 1) {
-                throw new AuthorizationException(
-                    new Phrase('Agent JWT signature verification failed.')
-                );
-            }
+        $pubKey = openssl_pkey_get_public($publicKeyPem);
+        if ($pubKey === false) {
+            throw new AuthorizationException(
+                new Phrase('Could not parse agent public key.')
+            );
+        }
+        $valid = openssl_verify($signingInput, $signature, $pubKey, OPENSSL_ALGO_SHA256);
+        if ($valid !== 1) {
+            throw new AuthorizationException(
+                new Phrase('Agent JWT signature verification failed.')
+            );
         }
     }
 
