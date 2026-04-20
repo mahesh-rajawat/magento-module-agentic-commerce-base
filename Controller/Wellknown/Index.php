@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Pinja\AgenticUcp\Controller\Wellknown;
+namespace MSR\AgenticUcp\Controller\Wellknown;
 
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\App\ResponseInterface;
@@ -9,7 +9,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Model\StoreManagerInterface;
-use Pinja\AgenticUcp\Model\Config\AgentConfigProvider;
+use MSR\AgenticUcp\Model\Config\AgentConfigProvider;
 
 /**
  * Serves the /.well-known/ucp.json agent manifest endpoint.
