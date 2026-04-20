@@ -196,11 +196,16 @@ Both share the same config constants, CLI flags, tool set, and system prompt.
 pip install requests
 ```
 
-**Edit `local_testing_ollama/ucp_chat.py`** — set the three constants at the top:
+**Edit `local_testing_ollama/ucp_chat_local_ollama_n_claude.py`** — set the three constants at the top:
 ```python
-MAGENTO_BASE     = "https://default.freshm2.test"
-UCP_TOKEN_SECRET = "your-secret-from-env-php"
-TEST_DID         = "did:web:default.freshm2.test:agents:test"
+MAGENTO_BASE      = "https://default.freshm2.test"
+UCP_TOKEN_SECRET  = "your-token-secret-here"
+TEST_DID          = "did:web:default.freshm2.test:agents:test"
+ANTHROPIC_API_KEY = "sk-ant-..."
+CLAUDE_MODEL      = "claude-sonnet-4-5"
+
+OLLAMA_BASE       = "http://localhost:11434"
+DEFAULT_MODEL     = "llama3.2:latest"
 ```
 
 **Run:**
@@ -210,31 +215,16 @@ python ucp_chat.py
 python ucp_chat.py --model llama3.1
 python ucp_chat.py --model qwen2.5 --ollama-host http://host.docker.internal:11434
 ```
-
-### D2. JavaScript terminal chat
-
-**Requirements:** Node.js 18+ — no packages needed.
-
-**Edit `local_testing_ollama/ucp_chat.js`** — set the same three constants:
-```js
-let   MAGENTO_BASE     = 'https://default.freshm2.test';
-const UCP_TOKEN_SECRET = 'your-secret-from-env-php';
-const TEST_DID         = 'did:web:default.freshm2.test:agents:test';
+**Run with Claude**
 ```
-
-**Run:**
-```bash
-cd local_testing_ollama
-node ucp_chat.js
-node ucp_chat.js --model llama3.1
-node ucp_chat.js --model qwen2.5 --ollama-host http://host.docker.internal:11434
+python ucp_chat_local_ollama_n_claude.py --brain claude
 ```
 
 SSL is resolved automatically from `REQUESTS_CA_BUNDLE`, `NODE_EXTRA_CA_CERTS`,
 or `~/.warden/ssl/rootca/certs/ca.cert.pem` (Warden default). Falls back to
 `rejectUnauthorized: false` if no CA file is found.
 
-### D3. Example conversation
+### D2. Example conversation
 
 ```
 You: show me products under $30
@@ -244,7 +234,7 @@ You: what is my total?
 You: place the order, email me@example.com
 ```
 
-### D4. CLI flags (both clients)
+### D3. CLI flags (both clients)
 
 | Flag | Default | Description |
 |---|---|---|
@@ -252,7 +242,7 @@ You: place the order, email me@example.com
 | `--ollama-host URL` | `http://localhost:11434` | Ollama API base URL |
 | `--magento URL` | value in script | Override Magento base URL |
 
-### D5. Open WebUI (visual interface)
+### D4. Open WebUI (visual interface)
 
 ```bash
 docker run -d --network=host \
@@ -265,7 +255,7 @@ docker run -d --network=host \
 Open `http://localhost:8080`, go to `Workspace → Tools → + New Tool`,
 paste the UCP tool plugin, set `MAGENTO_BASE` and `UCP_TOKEN_SECRET`.
 
-### D6. Model recommendations
+### D5. Model recommendations
 
 | Model | Size | Tool use |
 |---|---|---|
