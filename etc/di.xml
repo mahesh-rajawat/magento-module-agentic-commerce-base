@@ -26,4 +26,10 @@
                 type="MSR\AgenticUcp\Plugin\Webapi\AgentPolicyGuard"
                 sortOrder="1"/>
     </type>
+    <type name="MSR\AgenticUcp\Controller\Wellknown\Index">
+        <arguments>
+            <argument name="capabilities" xsi:type="array"/>
+            <argument name="paymentHandlers" xsi:type="array"/>
+        </arguments>
+    </type>
 </config>
