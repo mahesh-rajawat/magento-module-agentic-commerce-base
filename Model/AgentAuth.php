@@ -11,7 +11,7 @@ use MSR\AgenticUcp\Api\AgentAuthInterface;
 use MSR\AgenticUcp\Api\Data\AuthRequestInterface;
 use MSR\AgenticUcp\Api\Data\AuthTokenInterface;
 use MSR\AgenticUcp\Model\Config\AgentConfigProvider;
-use MSR\AgenticUcp\Model\Did\Resolver as DidResolver;
+use MSR\AgenticUcp\Model\Did\ResolverPool as DidResolverPool;
 use MSR\AgenticUcp\Model\Token\Generator as TokenGenerator;
 use Psr\Log\LoggerInterface;
 
@@ -22,17 +22,17 @@ class AgentAuth implements AgentAuthInterface
 {
     /**
      * @param AgentConfigProvider $configProvider
-     * @param DidResolver $didResolver
+     * @param DidResolverPool $didResolver
      * @param TokenGenerator $tokenGenerator
      * @param ObjectManagerInterface $objectManager
      * @param LoggerInterface $logger
      */
     public function __construct(
         private readonly AgentConfigProvider $configProvider,
-        private readonly DidResolver           $didResolver,
-        private readonly TokenGenerator        $tokenGenerator,
+        private readonly DidResolverPool $didResolver,
+        private readonly TokenGenerator $tokenGenerator,
         private readonly ObjectManagerInterface $objectManager,
-        private readonly LoggerInterface       $logger,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -63,20 +63,20 @@ class AgentAuth implements AgentAuthInterface
                 new Phrase('No capabilities granted for this agent.')
             );
         }
-        $ttl         = (int)($agentConfig['policies']['ttl_seconds'] ?? 3600);
+        $ttl = (int)($agentConfig['policies']['ttl_seconds'] ?? 3600);
         $accessToken = $this->tokenGenerator->issue($did, $granted, $ttl);
         $this->logger->info('UCP agent authenticated', [
-            'did'     => $did,
+            'did' => $did,
             'granted' => $granted,
-            'ttl'     => $ttl,
+            'ttl' => $ttl,
         ]);
         /** @var AuthTokenInterface $token */
         $token = $this->objectManager->create(AuthTokenInterface::class, [
             'data' => [
-                AuthTokenInterface::ACCESS_TOKEN         => $accessToken,
-                AuthTokenInterface::EXPIRES_IN           => $ttl,
+                AuthTokenInterface::ACCESS_TOKEN => $accessToken,
+                AuthTokenInterface::EXPIRES_IN => $ttl,
                 AuthTokenInterface::GRANTED_CAPABILITIES => $granted,
-                AuthTokenInterface::TOKEN_TYPE           => 'Bearer',
+                AuthTokenInterface::TOKEN_TYPE => 'Bearer',
             ],
         ]);
         return $token;
@@ -101,6 +101,7 @@ class AgentAuth implements AgentAuthInterface
      * @param string $expectedIssuer
      * @return void
      * @throws AuthorizationException
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     private function verifyJwt(string $jwt, string $publicKeyPem, string $expectedIssuer): void
     {
@@ -111,8 +112,10 @@ class AgentAuth implements AgentAuthInterface
 
         [$headerB64, $payloadB64, $sigB64] = $parts;
 
-        // phpcs:ignore Magento2.Functions.DiscouragedFunction
+        // phpcs:disable Magento2.Functions.DiscouragedFunction
+        $header = json_decode(base64_decode(strtr($headerB64, '-_', '+/')), true);
         $payload = json_decode(base64_decode(strtr($payloadB64, '-_', '+/')), true);
+        // phpcs:enable Magento2.Functions.DiscouragedFunction
 
         if (($payload['iss'] ?? '') !== $expectedIssuer) {
             throw new AuthorizationException(new Phrase('JWT issuer mismatch.'));
@@ -126,17 +129,29 @@ class AgentAuth implements AgentAuthInterface
             throw new AuthorizationException(new Phrase('JWT issued in the future.'));
         }
 
+        $alg = strtoupper($header['alg'] ?? 'ES256');
         $signingInput = "{$headerB64}.{$payloadB64}";
         // phpcs:ignore Magento2.Functions.DiscouragedFunction
-        $signature    = base64_decode(strtr($sigB64, '-_', '+/'));
+        $signature = base64_decode(strtr($sigB64, '-_', '+/'));
 
         $pubKey = openssl_pkey_get_public($publicKeyPem);
         if ($pubKey === false) {
-            throw new AuthorizationException(
-                new Phrase('Could not parse agent public key.')
-            );
+            throw new AuthorizationException(new Phrase('Could not parse agent public key.'));
         }
-        $valid = openssl_verify($signingInput, $signature, $pubKey, OPENSSL_ALGO_SHA256);
+
+        // ES256K and EdDSA are added for did:ethr (secp256k1) and did:key (Ed25519).
+        // EdDSA uses digest NID 0 — OpenSSL determines the hash from the key type itself.
+        $opensslAlgo = match ($alg) {
+            'ES256', 'RS256', 'ES256K' => OPENSSL_ALGO_SHA256,
+            'ES384', 'RS384' => OPENSSL_ALGO_SHA384,
+            'ES512', 'RS512' => OPENSSL_ALGO_SHA512,
+            'EDDSA' => 0,
+            default => throw new AuthorizationException(
+                new Phrase('Unsupported JWT algorithm.')
+            ),
+        };
+
+        $valid = openssl_verify($signingInput, $signature, $pubKey, $opensslAlgo);
         if ($valid !== 1) {
             throw new AuthorizationException(
                 new Phrase('Agent JWT signature verification failed.')

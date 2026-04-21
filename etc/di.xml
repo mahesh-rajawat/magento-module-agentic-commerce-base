@@ -32,4 +32,13 @@
             <argument name="paymentHandlers" xsi:type="array"/>
         </arguments>
     </type>
+    <type name="MSR\AgenticUcp\Model\Did\ResolverPool">
+        <arguments>
+            <argument name="resolvers" xsi:type="array">
+                <item name="web"  xsi:type="object">MSR\AgenticUcp\Model\Did\Resolver</item>
+                <item name="key"  xsi:type="object">MSR\AgenticUcp\Model\Did\KeyResolver</item>
+                <item name="ethr" xsi:type="object">MSR\AgenticUcp\Model\Did\EthrResolver</item>
+            </argument>
+        </arguments>
+    </type>
 </config>
