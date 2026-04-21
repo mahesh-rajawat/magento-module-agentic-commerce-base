@@ -1,8 +1,8 @@
 {
     "name": "mahesh-rajawat/module-agentic-ucp",
-    "description": "Universal Commerce Protocol (UCP) base module for Magento 2 — agent discovery, DID authentication, policy enforcement, and admin configuration",
+    "description": "Universal Commerce Protocol (UCP) base module for Magento 2 — Agentic commerce",
     "type": "magento2-module",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "MIT",
     "keywords": [
         "magento2", "magento", "ucp", "ai-agents",
