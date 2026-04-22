@@ -354,22 +354,10 @@ php bin/magento cache:flush
 
 ## Local dev setup (Warden)
 
-Apply dev mode patches using Claude CLI:
+Apply dev mode patches
 
-```bash
-claude < claude_cli_dev_mode_prompt.md
-```
-
-Or manually patch `Model/Did/Resolver.php` to bypass HTTP DID resolution
+Manually patch `Model/Did/Resolver.php` to bypass HTTP DID resolution
 and return a local key (see `UCP_Testing_Guide.md` for full instructions).
-
-Revert before deploying:
-
-```bash
-grep -r "DEV MODE"     app/code/MSR/AgenticUcp/
-grep -r "localDevKeys" app/code/MSR/AgenticUcp/
-# Expected: empty output on both
-```
 
 ---
 
